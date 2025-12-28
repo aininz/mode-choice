@@ -1,6 +1,6 @@
 # PyTorch Implementation of Nested Logit Mode Choice Model with Heterogenous Features + Dynamic Pricing Tools
 
-**Update (2025/12/28):** live on [Streamlit](https://mode-choice-zmx3ayg3h2forofenappzjp.streamlit.app/User_Pricing).
+Live on [Streamlit](https://mode-choice-zmx3ayg3h2forofenappzjp.streamlit.app/User_Pricing).
 
 A nested logit discrete choice model is implemented in PyTorch and deployed as a Streamlit app (containerized with Docker). The public **ModeCanada** dataset is used to model travel mode choice across **train, car, bus, air** using a **two-level nest structure (Land vs. Air)** where **Land = {train, car, bus}** and **Air = {air}**. Heterogeneous effects introduced via **income** and **urban** features. The project is framed as a hypothetical travel-agency e-ticketing case study, where **train recall** is prioritized to reduce missed public transport demand signals.
 
