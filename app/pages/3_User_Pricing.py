@@ -27,7 +27,6 @@ from modechoice.pricing_user import make_user_tensor_hetero, user_probs, optimiz
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="User-specific Pricing", layout="wide")
 st.title("🧍 User-specific Pricing")
-st.caption("Build one user + one menu (attributes per mode), then optimize price multipliers for controllable modes.")
 
 # -----------------------------------------------------------------------------
 # Helpers
