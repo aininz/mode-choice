@@ -1,0 +1,16 @@
+services:
+  mode-choice:
+    image: mode-choice:${MODE_CHOICE_VERSION:-latest}
+    container_name: mode_choice
+    build:
+      dockerfile: ${MODE_CHOICE_DOCKERFILE:-Dockerfile}
+    restart: unless-stopped
+    ports:
+      - 8501:8501
+    networks:
+      - backend
+
+networks:
+  backend:
+    name: ${BACKEND_NETWORK_NAME:-backend}
+    external: true

@@ -1,0 +1,6 @@
+.venv/
+src/modechoice/__pycache__/
+mlruns/
+scrapped/
+
+.env

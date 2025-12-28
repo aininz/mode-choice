@@ -1,0 +1,18 @@
+{
+  "feat_names": [
+    "cost",
+    "ivt",
+    "ovt",
+    "freq",
+    "urban_x_ovt",
+    "gen_time",
+    "income_train",
+    "urban_train",
+    "income_car",
+    "urban_car",
+    "income_bus",
+    "urban_bus",
+    "income_air",
+    "urban_air"
+  ]
+}

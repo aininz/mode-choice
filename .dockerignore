@@ -1,0 +1,3 @@
+.venv/
+src/modechoice/__pycache__/
+mlruns/
