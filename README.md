@@ -136,14 +136,14 @@ A Streamlit interface is provided for interactive inference and policy evaluatio
 
 1. Create and activate a virtual environment
 
-**Windows (Powershell)**
+Windows (Powershell)
 ```sh
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 ```
 
-**macOS/Linux**
+macOS/Linux
 ```sh
 python3 -m venv .venv
 source .venv/bin/activate
