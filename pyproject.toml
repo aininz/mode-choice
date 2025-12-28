@@ -39,10 +39,6 @@ dev = [
   "pytest>=8.0",
 ]
 
-pricing = [
-  "optuna>=3.6",
-]
-
 [tool.setuptools]
 package-dir = {"" = "src"}
 
