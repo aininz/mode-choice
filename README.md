@@ -56,7 +56,7 @@ Feature selection is performed with a two-objective routine where validation NLL
 
 ## Training setup
 
-- **Stratified sampling** is used to preserve class proportions across train/validations/test splits.
+- Stratified sampling is used to preserve class proportions across train/validations/test splits.
 - Optimization is performed in PyTorch.
 - Model selection is guided by validation NLL.
 
