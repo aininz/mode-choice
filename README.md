@@ -85,7 +85,7 @@ Mode shares (pred vs. actual) are as below:
 | Test  | Delta      | -0.39% | -0.95% | +0.07% | +1.27% |
 
 Across train/validation/test:
-- Accuracy is stable around 0.76.
+- Accuracy is stable around 0.76~0.77.
 - Predicted shares are close to observed shares (aggregate demand is reproduced reasonably well).
 
 On the test set:
