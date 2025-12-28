@@ -13,7 +13,7 @@ The dataset is based on the `ModeCanada` example commonly used in discrete choic
 
 Each observation represents a choice occasion with:
 - **Alternative-specific attributes** (vary by mode): `cost`, `ivt` (in-vehicle time), `ovt` (out-of-vehicle time), `freq` (frequency)
-- **Individual-specific attributes** (vary by traveler): `income`, `urban` (indicator)
+- **Individual-specific attributes** (vary by user): `income`, `urban` (indicator)
 
 ## Model overview
 
