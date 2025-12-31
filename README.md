@@ -281,7 +281,7 @@ server {
 
 ## Recommendations
 
-Several changes are likely to improve the model's performance (including train recall) more effectively aside from additional feature tweaks:
+Several changes are likely to improve the model's performance (including train recall):
 1. **Add mode-specific slopes for key attributes** (e.g., `cost_train`, `gen_time_air`) on top of the existing user-level alternative-specific coding (e.g., `income_train`, `urban_air`).
 2. **Cost-sensitive training (class-weighted NLL)** to penalize **train false negatives** more heavily.
 3. **Revisit the nest structure**, e.g., replace **Land vs. Air** with a structure closer to behavior (e.g., **public (train/bus) vs. private (car)**, optionally treating air as its own nest).
