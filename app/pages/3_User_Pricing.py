@@ -8,7 +8,6 @@ from typing import Dict, List
 import numpy as np
 import pandas as pd
 import streamlit as st
-import torch
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "src"
@@ -140,6 +139,28 @@ def summarize_max_policy(
         "i_all": i_all,
         "i_t": i_t,
     }
+
+def choose_policy_with_guardrail(before_summary: dict, after_summary: dict) -> tuple[str, str | None]:
+    """
+    Returns (chosen_version, reason)
+      - chosen_version: "before" or "after"
+      - reason: human-readable message (or None)
+    Guardrails:
+      1) If baseline already chooses a target mode -> keep baseline (no-op).
+      2) If optimization reduces best-target probability vs baseline -> revert to baseline.
+    """
+    # baseline already target winner -> no need to touch prices
+    if before_summary.get("winner_is_target", False):
+        return "before", "Baseline already picks a TARGET mode. No price change needed."
+
+    # guardrail to not accept worse target probability
+    b = before_summary.get("max_target_prob", None)
+    a = after_summary.get("max_target_prob", None)
+
+    if (b is not None) and (a is not None) and np.isfinite(b) and np.isfinite(a) and (a < b):
+        return "before", "Guardrail triggered: optimization reduced best TARGET probability. Reverting to baseline."
+
+    return "after", None
 
 # -----------------------------------------------------------------------------
 # Sidebar
@@ -296,55 +317,8 @@ st.dataframe(base_prob_df.round(4), use_container_width=True)
 run_opt = st.button("Optimize user pricing", type="primary")
 
 if run_opt:
-    try:
-        mult_all, base_cost, new_cost, probs = optimize_user(
-            X_user_orig_t=X_user_orig_t,
-            avail_user_t=avail_user_t,
-            scaler=pipe.scaler,
-            asc=pipe.model.asc,
-            beta=pipe.model.beta,
-            raw_la=pipe.model.raw_lam_air,
-            raw_ll=pipe.model.raw_lam_land,
-            control_modes=control_modes,
-            target_modes=target_modes,
-            objective=objective,
-            mult_bounds=(float(lo), float(hi)),
-            steps=int(steps),
-            lr=float(lr),
-            forbid_modes=forbid_modes,
-        )
-    except Exception as e:
-        st.error(f"Optimization failed: {e}")
-        st.stop()
-
-    probs = np.asarray(probs, dtype=float)
-
-    st.subheader("Optimization results")
-    res_df = result_table(mult_all, base_cost, new_cost, probs)
-    res_df = res_df.merge(base_prob_df, on="mode", how="left")
-    res_df["prob_delta"] = res_df["prob_after"] - res_df["prob_baseline"]
-
-    # nicer column order
-    res_df = res_df[[
-        "mode", "multiplier",
-        "cost_before", "cost_after",
-        "prob_baseline", "prob_after", "prob_delta"
-    ]]
-
-    st.dataframe(res_df.round(4), use_container_width=True)
-
     cost_k = pipe.scaler.feat_names.index("cost")
-
-    after_summary = summarize_max_policy(
-        probs=probs,
-        avail_user_t=avail_user_t,
-        X_user_orig_t=X_user_orig_t,
-        cost_idx=cost_k,
-        modes=MODES,
-        target_modes=target_modes,
-    )
-
-    # Optional: baseline version too
+    # baseline summary first so we can no-op
     before_summary = summarize_max_policy(
         probs=baseline,
         avail_user_t=avail_user_t,
@@ -354,35 +328,102 @@ if run_opt:
         target_modes=target_modes,
     )
 
-    st.subheader("Max-probability policy summary")
+    # if baseline already wins with a target, then no need to optimize
+    if before_summary["winner_is_target"]:
+        chosen_version, reason = "before", "Baseline already picks a TARGET mode. No price change needed."
+
+        # "after" placeholders = baseline (so downstream code is simple)
+        mult_all = np.ones(len(MODES), dtype=float)
+        base_cost = X_user_orig_t.detach().cpu().numpy()[0, :, cost_k]
+        new_cost = base_cost.copy()
+        probs = baseline.copy()
+
+        after_summary = before_summary
+
+    else:
+        # run optimization normally
+        try:
+            mult_all, base_cost, new_cost, probs = optimize_user(
+                X_user_orig_t=X_user_orig_t,
+                avail_user_t=avail_user_t,
+                scaler=pipe.scaler,
+                asc=pipe.model.asc,
+                beta=pipe.model.beta,
+                raw_la=pipe.model.raw_lam_air,
+                raw_ll=pipe.model.raw_lam_land,
+                control_modes=control_modes,
+                target_modes=target_modes,
+                objective=objective,
+                mult_bounds=(float(lo), float(hi)),
+                steps=int(steps),
+                lr=float(lr),
+                forbid_modes=forbid_modes,
+            )
+        except Exception as e:
+            st.error(f"Optimization failed: {e}")
+            st.stop()
+
+        probs = np.asarray(probs, dtype=float)
+
+        after_summary = summarize_max_policy(
+            probs=probs,
+            avail_user_t=avail_user_t,
+            X_user_orig_t=X_user_orig_t,
+            cost_idx=cost_k,
+            modes=MODES,
+            target_modes=target_modes,
+        )
+
+        # guardrail decision
+        chosen_version, reason = choose_policy_with_guardrail(before_summary, after_summary)
+
+    # choose what to apply (before vs after)
+    if chosen_version == "after":
+        applied_mult = mult_all
+        applied_cost = new_cost
+        applied_probs = probs
+        applied_summary = after_summary
+    else:
+        applied_mult = np.ones(len(MODES), dtype=float)
+        applied_cost = base_cost
+        applied_probs = baseline
+        applied_summary = before_summary
+
+    if reason:
+        st.info(f"Applied policy: **{chosen_version.upper()}**. {reason}")
+
+    # show optimization results (unchanged, optional)
+    st.subheader("Optimization results")
+    res_df = result_table(mult_all, base_cost, new_cost, probs)
+    res_df = res_df.merge(pd.DataFrame({"mode": MODES, "prob_baseline": baseline}), on="mode", how="left")
+    res_df["prob_delta"] = res_df["prob_after"] - res_df["prob_baseline"]
+    res_df = res_df[["mode","multiplier","cost_before","cost_after","prob_baseline","prob_after","prob_delta"]]
+    st.dataframe(res_df.round(4), use_container_width=True)
+
+    # show APPLIED results (this is the key UX fix)
+    st.subheader("Applied pricing (post-guardrail)")
+    applied_df = pd.DataFrame({
+        "mode": MODES,
+        "multiplier_applied": [float(applied_mult[i]) for i in range(len(MODES))],
+        "cost_applied": [float(applied_cost[i]) for i in range(len(MODES))],
+        "prob_applied": [float(applied_probs[i]) for i in range(len(MODES))],
+    })
+    st.dataframe(applied_df.round(4), use_container_width=True)
+
+    # applied policy summary
+    st.subheader("Max-probability policy summary (APPLIED)")
+
+    winner_label = applied_summary["which_bigger"]
+    if chosen_version == "before" and before_summary["winner_is_target"]:
+        winner_label = "TARGET (no change)"
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Max P among ALL modes", f"{after_summary['max_all_prob']:.4f}", after_summary["max_all_mode"])
-    c2.metric("Max P among TARGET modes", "—" if after_summary["max_target_mode"] is None else f"{after_summary['max_target_prob']:.4f}",
-            "none" if after_summary["max_target_mode"] is None else after_summary["max_target_mode"])
-    c3.metric("Winner", after_summary["which_bigger"])
-    c4.metric("Expected Revenue", f"{after_summary['revenue_rule']:.2f}",
-            delta=f"{after_summary['revenue_rule'] - before_summary['revenue_rule']:.2f}")
-
-    # Pretty table (optional)
-    table = pd.DataFrame([
-        {
-            "version": "before",
-            "max_all_mode": before_summary["max_all_mode"],
-            "max_all_prob": before_summary["max_all_prob"],
-            "max_target_mode": before_summary["max_target_mode"],
-            "max_target_prob": before_summary["max_target_prob"],
-            "winner_is_target": before_summary["winner_is_target"],
-            "revenue_rule": before_summary["revenue_rule"],
-        },
-        {
-            "version": "after",
-            "max_all_mode": after_summary["max_all_mode"],
-            "max_all_prob": after_summary["max_all_prob"],
-            "max_target_mode": after_summary["max_target_mode"],
-            "max_target_prob": after_summary["max_target_prob"],
-            "winner_is_target": after_summary["winner_is_target"],
-            "revenue_rule": after_summary["revenue_rule"],
-        },
-    ])
-    st.dataframe(table, use_container_width=True)
+    c1.metric("Max P among ALL modes", f"{applied_summary['max_all_prob']:.4f}", applied_summary["max_all_mode"])
+    c2.metric(
+        "Max P among TARGET modes",
+        "—" if applied_summary["max_target_mode"] is None else f"{applied_summary['max_target_prob']:.4f}",
+        "none" if applied_summary["max_target_mode"] is None else applied_summary["max_target_mode"],
+    )
+    c3.metric("Winner", winner_label)
+    c4.metric("Expected Revenue", f"{applied_summary['revenue_rule']:.2f}",
+              delta=f"{applied_summary['revenue_rule'] - before_summary['revenue_rule']:.2f}")
