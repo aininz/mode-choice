@@ -21,7 +21,7 @@ A **nested logit** model is used to relax the IIA assumption by allowing correla
 
 Utilities are computed as:
 
-- `U_ni = V_ni + ε_ni`
+- `U_ni = V_ni + eps_ni`
 - `P(i|n) = P(i|m,n) * P(m|n)` (nested logit factorization)
 - `V_ni` is formed from base alternative features and engineered features, with heterogeneity introduced, including via alternative-specific covariates (e.g., `income_train`) and interactions (e.g., `urban_x_ovt`).
 
@@ -42,15 +42,17 @@ Individual attributes are also included via **alternative-specific coding** (mod
 - `income_train`, `income_car`, `income_bus`, `income_air`
 - `urban_train`, `urban_car`, `urban_bus`, `urban_air`
 
+Alternative-specific coding allows person-level attributes to affect different modes differently by interacting the attribute with mode indicators, so income/urban can shift the relative utilities and therefore the predicted choice.
+
 Candidate engineered features are evaluated via forward selection:
 
-- `cost_log`
-- `wait_time`
-- `gen_time`
-- `rel_cost`
-- `rel_gen_time`
-- `income_x_rel_cost`
-- `urban_x_ovt`
+- `cost_log`: Log of monetary cost (as to make the model treat cost sensitivity as diminishing, e.g., an extra $10 hurts more when the trip is cheap than when it's already expensive).
+- `wait_time`: Expected waiting time from service frequency calculated using the half headway rule.
+- `gen_time`: `ivt` + `w_ovt` * `ovt` + `wait_time`
+- `rel_cost`: How much more expensive the alternative is compared to the cheapest option in the same case.
+- `rel_gen_time`: How much slower (in generalized time) the alternative is compared to the fastest option in the same case.
+- `income_x_rel_cost`: Interaction term between `income` and `rel_cost`.
+- `urban_x_ovt`: Interaction term between `urban` and `ovt`.
 
 Feature selection is performed with a two-objective routine where validation NLL is improved while **train recall** is treated as a priority metric for the case study.
 
@@ -59,6 +61,8 @@ Feature selection is performed with a two-objective routine where validation NLL
 - Stratified sampling is used to preserve class proportions across train/validations/test splits.
 - Optimization is performed in PyTorch.
 - Model selection is guided by validation NLL.
+
+For this particular dataset, the chosen item features (aside from the alternative-specific coding) include `cost`, `ivt`, `ovt`, `freq`, `urban_x_ovt`, `gen_time`. 
 
 ## Result summary
 
@@ -89,9 +93,21 @@ Across train/validation/test:
 - Predicted shares are close to observed shares (aggregate demand is reproduced reasonably well).
 
 On the test set:
-- **ROC AUC:** 0.8591 (strong)
-- **ROC AUC (weighted):** 0.8908 (strong)
+- **ROC AUC:** 0.8591 (strong) | **ROC AUC (weighted):** 0.8908 (strong)
+    
+    ROC AUC measures how well the model can discriminate a given class from "not that class" across a range of decision thresholds. A strong ROC AUC means the model's scoring is generally well-ordered, which means true positives tend to receive higher predicted scores than true negatives. Equivalently, if one positive case and one negative case are sampled at random, the model will assign a higher score to the positive case most of the time. In practice, this suggests the model has learned useful signal and can separate modes reasonably well at the ranking/score level, even before committing to a single hard label via argmax or a fixed threshold.
+
 - **PR AUC:** 0.5439 (moderate)
+
+    PR AUC evaluates performance in terms of the precision–recall trade-off, and is typically more informative under class imbalance since it focuses on how reliable positive predictions remain as we attempt to capture more positives. Unlike ROC AUC (which can remain high when negatives dominate), PR AUC drops quickly if improving recall comes at the cost of many false positives. A moderate PR AUC here indicates that while the model can separate classes reasonably well overall, its positive predictions are less robust for rarer modes, i.e., as we try to recover more minority-class cases, precision degrades more than we would ideally want.
+
+- **Accuracy:** 0.7673 (moderate strong)
+
+    Accuracy reports the fraction of samples where the predicted mode matches the true mode. An accuracy of 0.7673 means the model is correct on ~76.7% of cases overall. Because this metric counts every sample equally, it is most influenced by the majority classes where strong performance on common modes can yield a high accuracy even when performance on rarer modes is weaker.
+
+- **Macro F1:** 0.4530 (moderate-weak) | **Weighted Average F1:** 0.7267 (moderate-strong)
+
+    A macro F1 of 0.4530 indicates uneven performance, typically driven by weaker minority-class detection. Weighted F1 averages per-class F1 weighted by class frequency, so it emphasizes performance on the most common modes. A weighted F1 of 0.7267 suggests the model is comparatively strong on majority classes even if some minority classes remain challenging.
 
 Table below shows the confusion matrix:
 | True \ Pred | pred_train | pred_car | pred_bus | pred_air |
@@ -118,17 +134,27 @@ While table below shows the classification report:
 **Note:** `bus` has support = 2, so bus metrics are not statistically meaningful.
 
 Class-wise performance is still uneven:
-- **car** and **air** show strong recall (around 0.88).
-- **train** recall is low (around 0.10) with many true train cases predicted as **car** or **air**.
+- **car** and **air** show strong recall (around 0.88) and decent precision (around 0.77~0.78).
+- While **train**'s precision is not good either, its recall is especially low (less than 0.10) with many true train cases predicted as **car** or **air**.
 - **bus** has extremely low support (~2 samples) so class-specific bus metrics are not reliable.
 
 This is consistent with Nested Logit model that matches aggregate shares but struggles to separate train at the individual decision level under the current signal and objective.
 
-## Price Response (Demand Elasticity) and Pricing Optimization
+## Pricing Experiments: Demand Shifts and Revenue Optimization
 
 Price response is analyzed via counterfactuals. The `cost` feature for a selected mode is multiplied by a factor (e.g., +1%), choice probabilities are recomputed, and expected aggregate demand is obtained by summing probabilities across observations. Price elasticity of each specific mode is estimated using a finite-difference approximation, and substitution curves are generated by sweeping a multiplier grid and plotting relative demand by mode.
 
 Pricing is optimized with **gradient-based expected revenue maximization (PyTorch autograd + Adam)** using multiplicative price factors. In the scenario-based optimizer, demand can be softly capped with a differentiable capacity constraint to approximate inventory limits.
+
+### Modules
+
+- **Substitution simulation:** Explore how predicted demand reallocates across modes when the price of a selected mode changes (counterfactual demand + substitution curves).
+- **Population pricing optimization:** Solve for revenue-maximizing price multipliers under different scenarios (e.g., capacity constraints or policy assumptions), using differentiable expected revenue.
+- **User-context sandbox:** Run single user simulations to understand sensitivity and implied willingness-to-pay in a controlled setting.
+
+### Note on personalized pricing
+
+The user-level sandbox is included **strictly** for learning and sensitivity analysis. In real deployments, personalized pricing can raise serious ethical and legal concerns (e.g., discrimination or unfair treatment), so it should not be used without careful governance, transparency, and jurisdiction review.
 
 ## Streamlit App
 
@@ -256,8 +282,9 @@ server {
 ## Recommendations
 
 Several changes are likely to improve the model's performance (including train recall) more effectively aside from additional feature tweaks:
-1. Cost-sensitive training where a heavier penalty can be assigned to train false negatives (class-weighted NLL).
-2. Nest definition can be changed (e.g., from **Land vs. Air** to **public transport vs. private transport (car)**).
-3. With extremely low **bus** support, training noise might have been introduced, so bus can be merged into an "other" bucket or additional bus samples can be added.
-4. Include **nonlinear time-sensitivity** (log or piecewise) as an attribute.
-5. If stronger heterogeneity is needed, a **mixed logit model** (random coefficients) can be an upgrade. 
+1. **Add mode-specific slopes for key attributes** (e.g., `cost_train`, `gen_time_air`) on top of the existing user-level alternative-specific coding (e.g., `income_train`, `urban_air`).
+2. **Cost-sensitive training (class-weighted NLL)** to penalize **train false negatives** more heavily.
+3. **Revisit the nest structure**, e.g., replace **Land vs. Air** with a structure closer to behavior (e.g., **public (train/bus) vs. private (car)**, optionally treating air as its own nest).
+4. With extremely low **bus** support, estimates may be noisy, so **consider merging bus into an "other" bucket** or **collecting more bus samples**.
+5. Add **nonlinear time sensitivity** (e.g., log transform or piecewise/threshold effects for time components).
+6. If stronger heterogeneity is needed, a **mixed logit model** (random coefficients) can be an upgrade. 
