@@ -1,3 +1,12 @@
+**/__pycache__/
+**/*.pyc
+**/*.ipynb
 .venv/
-src/modechoice/__pycache__/
+.env
+.git/
+.gitignore
+
 mlruns/
+reports/
+models/
+data/
