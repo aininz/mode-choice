@@ -1,6 +1,8 @@
+**/__pycache__/
+**/*.pyc
+**/*.ipynb
 .venv/
-src/modechoice/__pycache__/
+.env
+
 mlruns/
 scrapped/
-
-.env
