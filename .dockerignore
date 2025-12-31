@@ -1,12 +1,22 @@
+.git/
+__pycache__/
 **/__pycache__/
 **/*.pyc
 **/*.ipynb
 .venv/
 .env
-.git/
-.gitignore
 
 mlruns/
 reports/
 models/
 data/
+dataset/
+artifacts/
+
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
