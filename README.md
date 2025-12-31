@@ -1,8 +1,10 @@
 # PyTorch Implementation of Nested Logit Mode Choice Model with Heterogenous Features + Dynamic Pricing Tools
 
-Live on [my personal site](https://mode-choice.aini.nz/) and [Streamlit](https://mode-choice-zmx3ayg3h2forofenappzjp.streamlit.app/).
+[Demo](https://mode-choice.aini.nz/) | [Demo (Streamlit)](https://mode-choice-zmx3ayg3h2forofenappzjp.streamlit.app/)
 
 A nested logit discrete choice model is implemented in PyTorch and deployed as a Streamlit app (containerized with Docker). The public **ModeCanada** dataset is used to model travel mode choice across **train, car, bus, air** using a **two-level nest structure (Land vs. Air)** where **Land = {train, car, bus}** and **Air = {air}**. Heterogeneous effects introduced via **income** and **urban** features. The project is framed as a hypothetical travel-agency e-ticketing case study, where **train recall** is prioritized to reduce missed public transport demand signals.
+
+<!--more-->
 
 ## Dataset
 
@@ -162,28 +164,27 @@ A Streamlit interface is provided for interactive inference and policy evaluatio
 
 ### Running locally
 
-1. Create and activate a virtual environment
+1. Create a virtual environment:
+   ```sh
+   python -m venv venv
+   ```
 
-Windows (Powershell)
-```sh
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-```
+2. Activate the virtual environment:
+   - Windows:
+     ```sh
+     .\venv\Scripts\activate
+     ```
+   - Unix/MacOS:
+     ```sh
+     source venv/bin/activate
+     ```
 
-macOS/Linux
-```sh
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-```
-
-2. Install dependencies as specified in `pyproject.toml`
+3. Install dependencies as specified in `pyproject.toml`
 ```sh
 pip install .
 ```
 
-3. Run Streamlit
+4. Run Streamlit
 ```sh
 streamlit run app/Home.py
 ```
