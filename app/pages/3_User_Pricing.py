@@ -168,7 +168,7 @@ def choose_policy_with_guardrail(before_summary: dict, after_summary: dict) -> t
 with st.sidebar:
     # st.header("Inputs")
 
-    default_bundle = ROOT / "artifacts" / "modechoice_bundle"
+    default_bundle = ROOT / "runtime_assets" / "modechoice_bundle"
     # BUNDLE_PATH = st.text_input("Bundle path", value=str(default_bundle))
     BUNDLE_PATH = default_bundle
 

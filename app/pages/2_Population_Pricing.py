@@ -125,11 +125,11 @@ def load_all_t(
 with st.sidebar:
     # st.header("Inputs")
 
-    default_bundle = ROOT / "artifacts" / "modechoice_bundle"
+    default_bundle = ROOT / "runtime_assets" / "modechoice_bundle"
     # BUNDLE_PATH = st.text_input("Bundle path", value=str(default_bundle))
     BUNDLE_PATH = default_bundle
 
-    default_data = ROOT / "dataset" / "ModeCanada.csv"
+    default_data = ROOT / "runtime_assets" / "ModeCanada.csv"
     # DATA_PATH = st.text_input("Data CSV path", value=str(default_data))
     DATA_PATH = default_data
 

@@ -198,11 +198,11 @@ def plot_absolute(curve_df: pd.DataFrame, changed_mode: str, display_modes: List
 with st.sidebar:
     # st.header("Inputs")
 
-    default_bundle = ROOT / "artifacts" / "modechoice_bundle"
+    default_bundle = ROOT / "runtime_assets" / "modechoice_bundle"
     # BUNDLE_PATH = st.text_input("Bundle path", value=str(default_bundle))
     BUNDLE_PATH = str(default_bundle)
 
-    default_data = ROOT / "dataset" / "ModeCanada.csv"
+    default_data = ROOT / "runtime_assets" / "ModeCanada.csv"
     # DATA_PATH = st.text_input("Data CSV path", value=str(default_data))
     DATA_PATH = str(default_data)
 
